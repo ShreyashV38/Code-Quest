@@ -9,8 +9,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.quizapp.api.RetrofitClient; // Import RetrofitClient
-import com.example.quizapp.models.User; // Import User model
+import com.example.quizapp.api.RetrofitClient;
+import com.example.quizapp.models.User;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -26,7 +26,7 @@ public class ProfileActivity extends AppCompatActivity {
     private ImageView backBtn;
     private TextView profileName, profileEmail;
     private TextView statQuizzesTaken, statAvgScore, statBestScore;
-    private MaterialButton editProfileBtn, logoutBtn;
+    private MaterialButton logoutBtn; // editProfileBtn removed
     private ProgressBar progressBar;
 
     private FirebaseAuth mAuth;
@@ -59,24 +59,19 @@ public class ProfileActivity extends AppCompatActivity {
         statQuizzesTaken = findViewById(R.id.statQuizzesTaken);
         statAvgScore = findViewById(R.id.statAvgScore);
         statBestScore = findViewById(R.id.statBestScore);
-        editProfileBtn = findViewById(R.id.editProfileBtn);
+        // editProfileBtn = findViewById(R.id.editProfileBtn); // Removed
         logoutBtn = findViewById(R.id.logoutBtn);
-        progressBar = findViewById(R.id.profileProgressBar); // Add this ID to your XML
+        progressBar = findViewById(R.id.profileProgressBar);
     }
 
     private void setupListeners() {
         backBtn.setOnClickListener(v -> finish());
 
-        editProfileBtn.setOnClickListener(v -> {
-            Toast.makeText(this, "Edit Profile (Not Implemented)", Toast.LENGTH_SHORT).show();
-        });
+        // editProfileBtn listener removed
 
         logoutBtn.setOnClickListener(v -> {
             // Sign out from Firebase
             mAuth.signOut();
-
-            // Note: Your RetrofitClient is designed to get a fresh token
-            // for each request, so no client-side clearing is needed.
 
             // Navigate to AuthActivity and clear all previous activities
             goToAuthActivity();

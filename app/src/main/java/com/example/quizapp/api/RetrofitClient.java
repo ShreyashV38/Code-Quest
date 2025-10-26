@@ -12,9 +12,8 @@ public class RetrofitClient {
     private static ApiService apiService = null;
 
     // UPDATE THIS WITH YOUR NODE.JS API URL
-    private static final String BASE_URL = "http:10.245.179.166:3000/api/"; // For Android Emulator
-    // For real device: "http://YOUR_IP:3000/api/"
-    // For production: "https://your-domain.com/api/"
+    private static final String BASE_URL = "https://7512895c7349.ngrok-free.app/api/"; // For Android Emulator
+
 
     public static ApiService getApiService() {
         if (apiService == null) {

@@ -2,13 +2,18 @@ package com.example.quizapp;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputType;
+import android.text.TextUtils;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
@@ -36,18 +41,15 @@ public class LoginFragment extends Fragment {
         loginBtn = view.findViewById(R.id.loginBtn);
         forgotPassword = view.findViewById(R.id.forgotPassword);
         signupLink = view.findViewById(R.id.signupLink);
-        progressBar = view.findViewById(R.id.loginProgressBar); // Add this ID to your XML
+        progressBar = view.findViewById(R.id.loginProgressBar);
 
         progressBar.setVisibility(View.GONE);
 
         // Login button click listener
         loginBtn.setOnClickListener(v -> loginUser());
 
-        // Forgot password click listener
-        forgotPassword.setOnClickListener(v -> {
-            // TODO: Navigate to forgot password screen
-            Toast.makeText(getContext(), "Forgot Password clicked", Toast.LENGTH_SHORT).show();
-        });
+        // Forgot password click listener - UPDATED
+        forgotPassword.setOnClickListener(v -> showForgotPasswordDialog());
 
         // Signup link click listener
         signupLink.setOnClickListener(v -> {
@@ -59,13 +61,77 @@ public class LoginFragment extends Fragment {
         return view;
     }
 
+    // NEW METHOD for Forgot Password
+    private void showForgotPasswordDialog() {
+        // Create an EditText for the dialog
+        final EditText resetEmailInput = new EditText(requireContext());
+        resetEmailInput.setHint("Enter your email");
+        resetEmailInput.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+
+        // Add padding to the EditText
+        FrameLayout container = new FrameLayout(requireContext());
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        int margin = (int) (20 * getResources().getDisplayMetrics().density);
+        params.leftMargin = margin;
+        params.rightMargin = margin;
+        resetEmailInput.setLayoutParams(params);
+        container.addView(resetEmailInput);
+
+        // Create the AlertDialog
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Reset Password")
+                .setMessage("Enter the email associated with your account.")
+                .setView(container) // Set the custom view
+                .setPositiveButton("Send", (dialog, which) -> {
+                    String email = resetEmailInput.getText().toString().trim();
+
+                    if (validateEmailForReset(email)) {
+                        sendPasswordResetEmail(email);
+                    }
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .create()
+                .show();
+    }
+
+    // NEW HELPER for validating the email from the dialog
+    private boolean validateEmailForReset(String email) {
+        if (TextUtils.isEmpty(email)) {
+            Toast.makeText(getContext(), "Email is required.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            Toast.makeText(getContext(), "Please enter a valid email.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
+    // NEW HELPER to send the reset email
+    private void sendPasswordResetEmail(String email) {
+        setLoading(true);
+        mAuth.sendPasswordResetEmail(email)
+                .addOnCompleteListener(task -> {
+                    setLoading(false);
+                    if (task.isSuccessful()) {
+                        Toast.makeText(getContext(), "Password reset email sent to " + email, Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(getContext(), "Failed to send email: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    // --- (Rest of your existing methods) ---
+
     private void loginUser() {
         String email = emailInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
 
         if (validateInput(email, password)) {
             setLoading(true);
-
             mAuth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(task -> {
                         setLoading(false);

@@ -295,14 +295,34 @@ public class QuizActivity extends AppCompatActivity {
         long seconds = (totalTimeSpent / 1000) % 60;
         String timeTaken = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
 
+        // --- ADD THIS: Create list of question IDs shown ---
+        ArrayList<String> questionIdsShown = new ArrayList<>();
+        for (Question q : questionList) {
+            if (q != null && q.getId() != null) { // Add null checks for safety
+                questionIdsShown.add(q.getId());
+            }
+        }
+        // --- END ADD ---
+
         Intent intent = new Intent(this, ResultsActivity.class);
         intent.putExtra("TOTAL_QUESTIONS", totalQuestions);
         intent.putExtra("CORRECT_ANSWERS", correctAnswers);
         intent.putExtra("WRONG_ANSWERS", totalQuestions - correctAnswers);
         intent.putExtra("TIME_TAKEN", timeTaken);
+        intent.putExtra("reviewData", reviewList); // For the review screen
 
-        // Pass the review list
-        intent.putExtra("reviewData", reviewList);
+        // --- ADD THESE EXTRAS ---
+        // Pass IDs for marking questions as seen
+        intent.putExtra("questionIds", questionIdsShown);
+        // Pass full question objects for progress calculation
+        intent.putExtra("questions", (Serializable) questionList);
+        // Pass difficulty and language for progress calculation keys
+        // Need to get these from onCreate or store them as member variables
+        String difficulty = getIntent().getStringExtra("difficulty"); // Re-get from original intent
+        String language = getIntent().getStringExtra("language");     // Re-get from original intent
+        intent.putExtra("difficulty", difficulty);
+        intent.putExtra("language", language);
+        // --- END ADD ---
 
         startActivity(intent);
         finish(); // Finish this activity
