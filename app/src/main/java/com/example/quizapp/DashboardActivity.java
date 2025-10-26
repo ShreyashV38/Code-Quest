@@ -32,7 +32,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     // --- Views ---
     private Spinner languageSpinner;
-    private ImageView profileIcon;
+    private View profileIcon;
     private TextView userNameText;
     private MaterialCardView easyCard, mediumCard, hardCard, gateCard, gkCard;
     private ProgressBar easyProgressBar, mediumProgressBar, hardProgressBar;
@@ -75,7 +75,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initializeViews() {
         languageSpinner = findViewById(R.id.languageSpinner);
-        profileIcon = findViewById(R.id.profileIcon);
+        profileIcon = findViewById(R.id.profileButton);
         userNameText = findViewById(R.id.userNameText);
         easyCard = findViewById(R.id.easyCard);
         mediumCard = findViewById(R.id.mediumCard);

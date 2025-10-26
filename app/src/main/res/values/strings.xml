@@ -1,6 +1,5 @@
 <resources>
-    <string name="app_name">Code`Quest</string>
+    <string name="app_name">CodeQuest</string>
     <string name="auth_toggle_signup">signup\n</string>
-    <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>
