@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "47948970518",
+    "project_id": "codequest-c4f26",
+    "storage_bucket": "codequest-c4f26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:47948970518:android:6250862fcf5e7f516ed337",
+        "android_client_info": {
+          "package_name": "com.example.quizapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHw59ad_hSMUTyZmf6gSE0wQhPCEY8yxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,6 +2,7 @@ package com.example.quizapp;
 
 import android.os.Bundle;
 import android.widget.ImageView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -22,7 +23,7 @@ public class ReviewAnswersActivity extends AppCompatActivity {
 
         initializeViews();
         setupListeners();
-        loadReviewData();
+        loadReviewData(); // Load real data
         setupRecyclerView();
     }
 
@@ -36,30 +37,13 @@ public class ReviewAnswersActivity extends AppCompatActivity {
     }
 
     private void loadReviewData() {
-        // TODO: Get the list of questions from the Intent
-        // questionList = (List<QuizReviewQuestion>) getIntent().getSerializableExtra("reviewData");
+        // Get the list of questions from the Intent
+        questionList = (List<QuizReviewQuestion>) getIntent().getSerializableExtra("reviewData");
 
-        // For now, using sample data
+        // Fallback if data is missing for some reason
         if (questionList == null) {
             questionList = new ArrayList<>();
-            questionList.add(new QuizReviewQuestion(
-                    "What is the time complexity of binary search?",
-                    "O(n)",
-                    "O(log n)",
-                    "Binary search divides the array in half at each step, resulting in logarithmic time complexity."
-            ));
-            questionList.add(new QuizReviewQuestion(
-                    "Which keyword is used to inherit a class in Java?",
-                    "extends",
-                    "extends",
-                    "The 'extends' keyword is used for class inheritance, while 'implements' is used for interfaces."
-            ));
-            questionList.add(new QuizReviewQuestion(
-                    "What is the default value of an integer in Java?",
-                    "null",
-                    "0",
-                    "Primitive numeric types default to 0, while object references default to null."
-            ));
+            Toast.makeText(this, "Could not load review data.", Toast.LENGTH_SHORT).show();
         }
     }
 

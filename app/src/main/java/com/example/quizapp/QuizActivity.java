@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Handler;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -11,8 +12,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import com.example.quizapp.models.Question; // Import Question model
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class QuizActivity extends AppCompatActivity {
 
@@ -26,15 +32,20 @@ public class QuizActivity extends AppCompatActivity {
     private MaterialButton skipBtn, nextBtn;
 
     private CountDownTimer timer;
-    private int currentQuestion = 1;
-    private int totalQuestions = 10;
-    private int selectedOption = -1;
+    private long timePerQuestion = 30000; // 30 seconds
+    private long timeLeftInMillis;
+    private long totalTimeSpent = 0;
+
+    // Data from Intent
+    private List<Question> questionList;
+    private int currentQuestionIndex = 0;
+    private int totalQuestions;
+    private Question currentQuestion;
+    private int selectedOption = -1; // 0=A, 1=B, 2=C, 3=D
     private int correctAnswers = 0;
 
-    // Sample question data (replace with API/database data)
-    private String difficulty;
-    private String language;
-    private long timePerQuestion = 30000; // 30 seconds
+    // For Review Screen
+    private ArrayList<QuizReviewQuestion> reviewList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,20 +53,24 @@ public class QuizActivity extends AppCompatActivity {
         setContentView(R.layout.activity_quiz);
 
         // Get intent data
-        difficulty = getIntent().getStringExtra("difficulty");
-        language = getIntent().getStringExtra("language");
+        String difficulty = getIntent().getStringExtra("difficulty");
+        String language = getIntent().getStringExtra("language");
+        questionList = (List<Question>) getIntent().getSerializableExtra("questions");
 
-        // Initialize views
+        // Check if question list is valid
+        if (questionList == null || questionList.isEmpty()) {
+            Toast.makeText(this, "Failed to load questions.", Toast.LENGTH_SHORT).show();
+            finish(); // Go back
+            return;
+        }
+
+        totalQuestions = questionList.size();
+        reviewList = new ArrayList<>(); // Initialize review list
+
         initializeViews();
-
-        // Setup listeners
+        categoryText.setText(difficulty + " • " + language); // Set category
         setupListeners();
-
-        // Load first question
         loadQuestion();
-
-        // Start timer
-        startTimer();
     }
 
     private void initializeViews() {
@@ -64,88 +79,86 @@ public class QuizActivity extends AppCompatActivity {
         categoryText = findViewById(R.id.categoryText);
         timerText = findViewById(R.id.timerText);
         quizProgress = findViewById(R.id.quizProgress);
-
         questionText = findViewById(R.id.questionText);
         codeCard = findViewById(R.id.codeCard);
         codeSnippet = findViewById(R.id.codeSnippet);
-
         optionA = findViewById(R.id.optionA);
         optionB = findViewById(R.id.optionB);
         optionC = findViewById(R.id.optionC);
         optionD = findViewById(R.id.optionD);
-
         optionAText = findViewById(R.id.optionAText);
         optionBText = findViewById(R.id.optionBText);
         optionCText = findViewById(R.id.optionCText);
         optionDText = findViewById(R.id.optionDText);
-
         skipBtn = findViewById(R.id.skipBtn);
         nextBtn = findViewById(R.id.nextBtn);
-
-        // Set category text
-        categoryText.setText(difficulty + " • " + language);
     }
 
     private void setupListeners() {
         backBtn.setOnClickListener(v -> finish());
-
         optionA.setOnClickListener(v -> selectOption(0, optionA));
         optionB.setOnClickListener(v -> selectOption(1, optionB));
         optionC.setOnClickListener(v -> selectOption(2, optionC));
         optionD.setOnClickListener(v -> selectOption(3, optionD));
 
-        skipBtn.setOnClickListener(v -> skipQuestion());
-        nextBtn.setOnClickListener(v -> nextQuestion());
+        skipBtn.setOnClickListener(v -> processAnswer(-1, true)); // -1 for skip
+        nextBtn.setOnClickListener(v -> {
+            if (selectedOption != -1) {
+                processAnswer(selectedOption, false);
+            }
+        });
     }
 
     private void loadQuestion() {
-        // Update question counter
-        questionCounter.setText("Question " + currentQuestion + "/" + totalQuestions);
+        if (currentQuestionIndex >= totalQuestions) {
+            finishQuiz();
+            return;
+        }
 
-        // Update progress bar
-        int progress = (currentQuestion * 100) / totalQuestions;
-        quizProgress.setProgress(progress);
+        currentQuestion = questionList.get(currentQuestionIndex);
 
-        // Reset selections
+        // Update UI
+        questionCounter.setText("Question " + (currentQuestionIndex + 1) + "/" + totalQuestions);
+        quizProgress.setProgress(((currentQuestionIndex + 1) * 100) / totalQuestions);
+
         resetOptions();
         selectedOption = -1;
         nextBtn.setEnabled(false);
+        skipBtn.setEnabled(true);
+        enableOptionClicks(true);
 
-        // TODO: Load actual question from database/API
-        // For now, using sample data
-        questionText.setText("What is the time complexity of binary search?");
+        questionText.setText(currentQuestion.getQuestion());
 
-        // Show/hide code snippet based on question type
-        codeCard.setVisibility(View.GONE);
-        // If question has code: codeCard.setVisibility(View.VISIBLE);
-        // codeSnippet.setText("your code here");
+        // Show/hide code snippet
+        if (currentQuestion.getCodeSnippet() != null && !currentQuestion.getCodeSnippet().isEmpty()) {
+            codeCard.setVisibility(View.VISIBLE);
+            codeSnippet.setText(currentQuestion.getCodeSnippet());
+        } else {
+            codeCard.setVisibility(View.GONE);
+        }
 
-        optionAText.setText("O(n)");
-        optionBText.setText("O(log n)");
-        optionCText.setText("O(n²)");
-        optionDText.setText("O(1)");
+        // Set option text
+        optionAText.setText(currentQuestion.getOptionA());
+        optionBText.setText(currentQuestion.getOptionB());
+        optionCText.setText(currentQuestion.getOptionC());
+        optionDText.setText(currentQuestion.getOptionD());
 
         // Restart timer
+        timeLeftInMillis = timePerQuestion;
         startTimer();
     }
 
     private void selectOption(int option, CardView selectedCard) {
-        // Reset all options
         resetOptions();
-
-        // Mark selected option
         selectedOption = option;
-        selectedCard.setCardBackgroundColor(getResources().getColor(R.color.teal_700));
+        selectedCard.setCardBackgroundColor(getResources().getColor(R.color.teal_700)); // Selected color
 
-        // Change text color to white for selected option
         switch (option) {
             case 0: optionAText.setTextColor(Color.WHITE); break;
             case 1: optionBText.setTextColor(Color.WHITE); break;
             case 2: optionCText.setTextColor(Color.WHITE); break;
             case 3: optionDText.setTextColor(Color.WHITE); break;
         }
-
-        // Enable next button
         nextBtn.setEnabled(true);
     }
 
@@ -161,99 +174,143 @@ public class QuizActivity extends AppCompatActivity {
         optionDText.setTextColor(Color.parseColor("#2D2D3A"));
     }
 
-    private void skipQuestion() {
-        if (currentQuestion < totalQuestions) {
-            currentQuestion++;
-            loadQuestion();
+    private void processAnswer(int selectedAnswerIndex, boolean isSkipped) {
+        if (timer != null) timer.cancel();
+
+        // Disable buttons to prevent double-click
+        nextBtn.setEnabled(false);
+        skipBtn.setEnabled(false);
+        enableOptionClicks(false);
+
+        totalTimeSpent += (timePerQuestion - timeLeftInMillis); // Add time spent
+
+        String yourAnswerText;
+        String correctAnswerText = currentQuestion.getOptionByIndex(currentQuestion.getCorrectAnswer());
+        boolean isCorrect = false;
+
+        if (isSkipped) {
+            yourAnswerText = "Skipped";
         } else {
-            finishQuiz();
+            yourAnswerText = currentQuestion.getOptionByIndex(selectedAnswerIndex);
+            if (selectedAnswerIndex == currentQuestion.getCorrectAnswer()) {
+                correctAnswers++;
+                isCorrect = true;
+            }
+        }
+
+        // Show feedback (Green for correct, Red for wrong)
+        showFeedback(selectedAnswerIndex, currentQuestion.getCorrectAnswer());
+
+        // Add to review list
+        reviewList.add(new QuizReviewQuestion(
+                currentQuestion.getQuestion(),
+                yourAnswerText,
+                correctAnswerText,
+                currentQuestion.getExplanation()
+        ));
+
+        // Delay for 1.5 seconds to show feedback, then load next
+        new Handler().postDelayed(() -> {
+            currentQuestionIndex++;
+            loadQuestion();
+        }, 1500);
+    }
+
+    private void showFeedback(int selectedIndex, int correctIndex) {
+        // Mark correct answer in Green
+        CardView correctCard = getCardByIndex(correctIndex);
+        if (correctCard != null) {
+            correctCard.setCardBackgroundColor(Color.parseColor("#4CAF50")); // Green
+            getTextViewByIndex(correctIndex).setTextColor(Color.WHITE);
+        }
+
+        // If wrong answer was selected, mark it in Red
+        if (selectedIndex != -1 && selectedIndex != correctIndex) {
+            CardView selectedCard = getCardByIndex(selectedIndex);
+            if (selectedCard != null) {
+                selectedCard.setCardBackgroundColor(Color.parseColor("#F44336")); // Red
+                getTextViewByIndex(selectedIndex).setTextColor(Color.WHITE);
+            }
         }
     }
 
-    private void nextQuestion() {
-        // Cancel timer
-        if (timer != null) {
-            timer.cancel();
-        }
+    // Helper to disable option clicks
+    private void enableOptionClicks(boolean enabled) {
+        optionA.setClickable(enabled);
+        optionB.setClickable(enabled);
+        optionC.setClickable(enabled);
+        optionD.setClickable(enabled);
+    }
 
-        // TODO: Check if answer is correct and update score
-        // For now, assuming option B is correct
-        if (selectedOption == 1) {
-            correctAnswers++;
+    // Helper methods to get views by index
+    private CardView getCardByIndex(int index) {
+        switch(index) {
+            case 0: return optionA;
+            case 1: return optionB;
+            case 2: return optionC;
+            case 3: return optionD;
+            default: return null;
         }
-
-        if (currentQuestion < totalQuestions) {
-            currentQuestion++;
-            loadQuestion();
-        } else {
-            finishQuiz();
+    }
+    private TextView getTextViewByIndex(int index) {
+        switch(index) {
+            case 0: return optionAText;
+            case 1: return optionBText;
+            case 2: return optionCText;
+            case 3: return optionDText;
+            default: return null;
         }
     }
 
     private void startTimer() {
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
 
-        timer = new CountDownTimer(timePerQuestion, 1000) {
+        timer = new CountDownTimer(timeLeftInMillis, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
+                timeLeftInMillis = millisUntilFinished;
                 long seconds = millisUntilFinished / 1000;
-                timerText.setText(String.format("%02d:%02d", seconds / 60, seconds % 60));
+                timerText.setText(String.format(Locale.getDefault(), "%02d:%02d", seconds / 60, seconds % 60));
 
-                // Change color if time is running out
                 if (seconds <= 10) {
                     timerText.setTextColor(Color.RED);
                 } else {
                     timerText.setTextColor(Color.WHITE);
                 }
             }
-
             @Override
             public void onFinish() {
-                // Auto skip when time runs out
+                timeLeftInMillis = 0;
                 Toast.makeText(QuizActivity.this, "Time's up!", Toast.LENGTH_SHORT).show();
-                skipQuestion();
+                processAnswer(-1, true); // Auto-skip
             }
         }.start();
     }
 
-    // In QuizActivity.java
-
     private void finishQuiz() {
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
 
-        // --- THIS IS THE LINE YOU WERE MISSING ---
-        // We must declare the variable before we can use it.
-        // TODO: Calculate actual time taken
-        String timeTaken = "00:00"; // Placeholder
-        // ------------------------------------
+        // Calculate total time
+        long minutes = (totalTimeSpent / 1000) / 60;
+        long seconds = (totalTimeSpent / 1000) % 60;
+        String timeTaken = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
 
-        // Remove the old Toast message
-        // Toast.makeText(this, "Quiz Complete! Score: " + correctAnswers + "/" + totalQuestions,
-        //         Toast.LENGTH_LONG).show();
-
-        // Create the Intent to go to ResultsActivity
         Intent intent = new Intent(this, ResultsActivity.class);
         intent.putExtra("TOTAL_QUESTIONS", totalQuestions);
         intent.putExtra("CORRECT_ANSWERS", correctAnswers);
         intent.putExtra("WRONG_ANSWERS", totalQuestions - correctAnswers);
-        intent.putExtra("TIME_TAKEN", timeTaken); // Now this line will work
+        intent.putExtra("TIME_TAKEN", timeTaken);
 
-        // TODO: Pass the list of questions/answers for the review screen
-        // intent.putExtra("reviewData", (Serializable) yourQuestionList);
+        // Pass the review list
+        intent.putExtra("reviewData", reviewList);
 
         startActivity(intent);
-        finish(); // Finish QuizActivity so user can't go back
+        finish(); // Finish this activity
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
     }
 }

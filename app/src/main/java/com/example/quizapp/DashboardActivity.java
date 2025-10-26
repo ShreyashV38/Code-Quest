@@ -9,8 +9,21 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import com.example.quizapp.models.Question;
+import com.example.quizapp.models.User;
+import com.example.quizapp.repository.QuizRepository;
 import com.google.android.material.card.MaterialCardView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import java.io.Serializable;
+import java.util.List;
 
 public class DashboardActivity extends AppCompatActivity {
 
@@ -20,28 +33,35 @@ public class DashboardActivity extends AppCompatActivity {
     private MaterialCardView easyCard, mediumCard, hardCard, gateCard, gkCard;
     private ProgressBar easyProgressBar, mediumProgressBar, hardProgressBar;
     private TextView easyProgress, mediumProgress, hardProgress;
+    private View loadingOverlay; // Loading overlay for API calls
 
-    // Progress tracking (in real app, fetch from database/SharedPreferences)
-    private int easyProgressValue = 0;
-    private int mediumProgressValue = 0;
-    private int hardProgressValue = 0;
+    private FirebaseAuth mAuth;
+    private DatabaseReference mUserDatabase;
+    private QuizRepository quizRepository;
+    private User currentUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
-        // Initialize views
+        // Initialize Firebase & Repository
+        mAuth = FirebaseAuth.getInstance();
+        quizRepository = new QuizRepository();
+
+        FirebaseUser firebaseUser = mAuth.getCurrentUser();
+        if (firebaseUser == null) {
+            // No user is logged in, send back to AuthActivity
+            goToAuthActivity();
+            return;
+        }
+        // Get reference to the specific user's data in Firebase
+        mUserDatabase = FirebaseDatabase.getInstance().getReference("users").child(firebaseUser.getUid());
+
         initializeViews();
-
-        // Setup language spinner
         setupLanguageSpinner();
-
-        // Setup click listeners
         setupClickListeners();
-
-        // Load user progress (from SharedPreferences or database)
-        loadUserProgress();
+        loadUserData();
     }
 
     private void initializeViews() {
@@ -62,124 +82,119 @@ public class DashboardActivity extends AppCompatActivity {
         easyProgress = findViewById(R.id.easyProgress);
         mediumProgress = findViewById(R.id.mediumProgress);
         hardProgress = findViewById(R.id.hardProgress);
+
+        loadingOverlay = findViewById(R.id.loadingOverlay); // Add this ID to your XML
+        loadingOverlay.setVisibility(View.GONE);
     }
 
     private void setupLanguageSpinner() {
-        // Create language options
         String[] languages = {"C", "C++", "Python", "Java", "JavaScript"};
-
-        // Create adapter
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                languages
-        );
+                this, android.R.layout.simple_spinner_item, languages);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        // Set adapter to spinner
         languageSpinner.setAdapter(adapter);
-
-        // Default selection (Java)
-        languageSpinner.setSelection(3);
+        languageSpinner.setSelection(3); // Default to Java
     }
 
     private void setupClickListeners() {
-        // Profile icon click
         profileIcon.setOnClickListener(v -> {
             Intent intent = new Intent(this, ProfileActivity.class);
             startActivity(intent);
         });
 
-        // Easy level click
-        easyCard.setOnClickListener(v -> {
-            String selectedLanguage = languageSpinner.getSelectedItem().toString();
-            startQuiz("Easy", selectedLanguage);
-        });
-
-        // Medium level click
-        mediumCard.setOnClickListener(v -> {
-            String selectedLanguage = languageSpinner.getSelectedItem().toString();
-            startQuiz("Medium", selectedLanguage);
-        });
-
-        // Hard level click
-        hardCard.setOnClickListener(v -> {
-            String selectedLanguage = languageSpinner.getSelectedItem().toString();
-            startQuiz("Hard", selectedLanguage);
-        });
-
-        // GATE click
-        gateCard.setOnClickListener(v -> {
-            String selectedLanguage = languageSpinner.getSelectedItem().toString();
-            startQuiz("GATE", selectedLanguage);
-        });
-
-        // General Knowledge click
-        gkCard.setOnClickListener(v -> {
-            // GK doesn't need language selection
-            startQuiz("GK", "General");
-        });
+        easyCard.setOnClickListener(v -> startQuiz("Easy"));
+        mediumCard.setOnClickListener(v -> startQuiz("Medium"));
+        hardCard.setOnClickListener(v -> startQuiz("Hard"));
+        gateCard.setOnClickListener(v -> startQuiz("GATE"));
+        gkCard.setOnClickListener(v -> startQuiz("GK"));
     }
 
-    private void startQuiz(String difficulty, String language) {
-        // TODO: Start quiz activity with selected difficulty and language
-        String message = "Starting " + difficulty + " quiz in " + language;
+    private void startQuiz(String difficulty) {
+        String language = (difficulty.equals("GK")) ? null : languageSpinner.getSelectedItem().toString();
+        int limit = 10; // Fetch 10 questions
+
+        String message = "Loading " + difficulty + " quiz...";
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        setLoading(true);
 
-        Intent intent = new Intent(this, QuizActivity.class);
-        intent.putExtra("difficulty", difficulty);
-        intent.putExtra("language", language);
-        startActivity(intent);
+        quizRepository.getQuestions(difficulty, language, limit, new QuizRepository.QuestionsCallback() {
+            @Override
+            public void onSuccess(List<Question> questions) {
+                setLoading(false);
+                if (questions == null || questions.isEmpty()) {
+                    Toast.makeText(DashboardActivity.this, "No questions found for this category.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                Intent intent = new Intent(DashboardActivity.this, QuizActivity.class);
+                intent.putExtra("difficulty", difficulty);
+                intent.putExtra("language", language != null ? language : "General");
+                // Pass the entire list of questions to QuizActivity
+                intent.putExtra("questions", (Serializable) questions);
+                startActivity(intent);
+            }
+
+            @Override
+            public void onError(String message) {
+                setLoading(false);
+                Toast.makeText(DashboardActivity.this, "Error: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
-    private void loadUserProgress() {
-        // TODO: Load from SharedPreferences or Database
-        // For now, using sample data
+    private void loadUserData() {
+        setLoading(true);
+        mUserDatabase.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                currentUser = snapshot.getValue(User.class);
+                if (currentUser != null) {
+                    userNameText.setText("Hey " + currentUser.getUsername() + " 👋");
+                    updateProgressBars();
+                } else {
+                    Toast.makeText(DashboardActivity.this, "Failed to load user profile.", Toast.LENGTH_SHORT).show();
+                }
+                setLoading(false);
+            }
 
-        // Get stored values (replace with actual data retrieval)
-        easyProgressValue = getProgressFromStorage("easy");
-        mediumProgressValue = getProgressFromStorage("medium");
-        hardProgressValue = getProgressFromStorage("hard");
-
-        // Update UI
-        updateProgressBars();
-    }
-
-    private int getProgressFromStorage(String level) {
-        // TODO: Implement actual storage retrieval
-        // Example using SharedPreferences:
-        // SharedPreferences prefs = getSharedPreferences("QuizApp", MODE_PRIVATE);
-        // return prefs.getInt(level + "_progress", 0);
-
-        // Sample data for now
-        return 0;
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                setLoading(false);
+                Toast.makeText(DashboardActivity.this, "Database error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void updateProgressBars() {
-        // Update Easy level
-        easyProgressBar.setProgress(easyProgressValue);
-        easyProgress.setText(easyProgressValue + "%");
+        if (currentUser == null) return;
 
-        // Update Medium level
-        mediumProgressBar.setProgress(mediumProgressValue);
-        mediumProgress.setText(mediumProgressValue + "%");
+        easyProgressBar.setProgress(currentUser.getEasyProgress());
+        easyProgress.setText(currentUser.getEasyProgress() + "%");
 
-        // Update Hard level
-        hardProgressBar.setProgress(hardProgressValue);
-        hardProgress.setText(hardProgressValue + "%");
+        mediumProgressBar.setProgress(currentUser.getMediumProgress());
+        mediumProgress.setText(currentUser.getMediumProgress() + "%");
+
+        hardProgressBar.setProgress(currentUser.getHardProgress());
+        hardProgress.setText(currentUser.getHardProgress() + "%");
     }
 
-    public void saveProgress(String level, int progress) {
-        // TODO: Save to SharedPreferences or Database
-        // Example:
-        // SharedPreferences prefs = getSharedPreferences("QuizApp", MODE_PRIVATE);
-        // prefs.edit().putInt(level + "_progress", progress).apply();
+    private void setLoading(boolean isLoading) {
+        loadingOverlay.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+    }
+
+    private void goToAuthActivity() {
+        Intent intent = new Intent(this, AuthActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Reload progress when returning to dashboard
-        loadUserProgress();
+        // Reload user data in case progress was updated
+        if (mUserDatabase != null) {
+            loadUserData();
+        }
     }
 }
