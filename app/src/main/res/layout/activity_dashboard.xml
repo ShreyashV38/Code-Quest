@@ -36,14 +36,38 @@
                     android:padding="20dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:id="@+id/profileIcon"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:src="@android:drawable/ic_menu_myplaces"
-                        app:tint="@android:color/white" android:background="?attr/selectableItemBackgroundBorderless"
+                    <!-- Improved Profile Button with circular background -->
+                    <FrameLayout
+                        android:id="@+id/profileButton"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/circle_white_bg"
                         android:clickable="true"
-                        android:focusable="true" />
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        android:elevation="2dp">
+
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_person"
+                            app:tint="@color/teal_700" />
+
+                        <!-- Small edit indicator icon -->
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="bottom|end"
+                            android:layout_marginEnd="2dp"
+                            android:layout_marginBottom="2dp"
+                            android:src="@android:drawable/ic_menu_edit"
+                            android:background="@drawable/circle_teal_bg"
+                            android:padding="3dp"
+                            app:tint="@android:color/white"
+                            android:elevation="1dp" />
+
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -67,6 +91,16 @@
                             android:text="Coder"
                             android:textColor="#E0E0E0"
                             android:textSize="14sp" />
+
+                        <!-- Optional: Add "Tap to edit profile" hint -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Tap icon to edit profile"
+                            android:textColor="#B2DFDB"
+                            android:textSize="11sp"
+                            android:layout_marginTop="2dp"
+                            android:alpha="0.8" />
 
                     </LinearLayout>
 
